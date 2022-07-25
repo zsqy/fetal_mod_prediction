@@ -50,8 +50,8 @@ def process_antenatal_data():
         'Examination date',
         'GA (WK)',
         'GA (DAYS)',
-        'EFW (clinical)',
         'Estimated fetal weight',
+        'EFW centile',
         ],
         inplace=True
     )
@@ -88,8 +88,8 @@ def process_antenatal_data():
     df.index = df.index.astype(str)
     
     # combine some obvious categorical values
-    df.loc[df['amniotic'] == 'increased', 'amniotic'] = 'normal'
-    df.loc[df['amniotic'] == 'reduced', 'amniotic'] = 'normal'
+    df.loc[df['amniotic'] == 'increased', 'amniotic'] = 'polyhydramnios'
+    df.loc[df['amniotic'] == 'reduced', 'amniotic'] = 'oligohydramnios'
 
     df.loc[df['presentation'].str.contains('breech', case=False), 'presentation'] = 'breech'
     df.loc[df['presentation'].str.contains('cephalic', case=False), 'presentation'] = 'cephalic'
@@ -97,12 +97,12 @@ def process_antenatal_data():
     df.loc[df['presentation'] == 'transverse', 'presentation'] = 'other'
     df.loc[df['presentation'] == 'Variable', 'presentation'] = 'other'
 
+    df = df[df.placenta_site != 'right lateral posterior']
     df.loc[df['placenta_site'].str.contains('anterior', case=False), 'placenta_site'] = 'anterior'
-    df.loc[df['placenta_site'] == 'right lateral posterior', 'placenta_site'] = 'posterior'
+    df.loc[df['placenta_site'] == 'placenta_site'] = 'posterior'
     df.loc[df['placenta_site'].str.contains('lateral', case=False), 'placenta_site'] = 'lateral'
     df.loc[df['placenta_site'].str.contains('placenta', case=False), 'placenta_site'] = 'placenta'
     df.loc[df['placenta_site'].str.contains('posterior', case=False), 'placenta_site'] = 'posterior'
-    df.loc[df['placenta_site'] == 'fundal', 'placenta_site'] = 'posterior'
 
     #logger.debug(df.info())
     return df
@@ -228,7 +228,7 @@ def read_file(filename):
         return pickle.load(f)
 
 
-from imblearn.over_sampling import RandomOverSampler, SMOTE
+from imblearn.over_sampling import RandomOverSampler, SMOTE, SMOTENC
 from imblearn.pipeline import make_pipeline
 from imblearn.pipeline import Pipeline as imbPipeline
 from imblearn.under_sampling import NearMiss, RandomUnderSampler, TomekLinks
@@ -267,10 +267,10 @@ SAMPLER = {
     'no_sampler': None,
     'rus': RandomUnderSampler(random_state=88),
     'ros': RandomOverSampler(random_state=88),
-    'smote': SMOTE(random_state=88),
-    'smote05': SMOTE(random_state=88, k_neighbors=5),
-    'smote10': SMOTE(random_state=88, k_neighbors=10),
-    'smote25': SMOTE(random_state=88, k_neighbors=25),
+    'smote': SMOTENC(categorical_features=[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26], random_state=88),
+    'smote05': SMOTENC(categorical_features=[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26], random_state=88, k_neighbors=5),
+    'smote10': SMOTENC(categorical_features=[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26], random_state=88, k_neighbors=10),
+    'smote25': SMOTENC(categorical_features=[9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26], random_state=88, k_neighbors=25),
     'nearmissv1': NearMiss(version=1),
     'nearmissv1_05': NearMiss(version=1, n_neighbors=5),
     'nearmissv1_10': NearMiss(version=1, n_neighbors=10),
@@ -339,8 +339,8 @@ def machine_learning(X_train, X_test, y_train, y_test, scaler_func, tomeklinks_f
         pipeline = Pipeline(steps)
     else:
         pipeline = imbPipeline(steps)
-    #cv = StratifiedGroupKFold(n_splits=5, random_state=88, shuffle=True)
-    cv = 5
+    cv = StratifiedGroupKFold(n_splits=5, random_state=88, shuffle=True)
+    #cv = 5
     #score = cross_validate(pipeline, X_train, y_train, scoring='balanced_accuracy', cv=cv, n_jobs=-1, groups=X_train['no'], verbose=0)
     score = cross_val_score(pipeline, X_train, y_train, scoring='balanced_accuracy', cv=cv, n_jobs=-1, groups=X_train['no'], verbose=0)
     y_pred = cross_val_predict(pipeline, X_train, y_train, cv=cv, n_jobs=-1, groups=X_train['no'], verbose=0)
